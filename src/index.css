@@ -1,0 +1,317 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;700&display=swap');
+@import "tailwindcss";
+
+@theme {
+  --font-sans: "Inter", ui-sans-serif, system-ui, sans-serif;
+  --font-mono: "JetBrains Mono", ui-monospace, SFMono-Regular, monospace;
+  --animate-spin-slow: spin 3s linear infinite;
+}
+
+@keyframes shimmer {
+  0% { transform: translateX(-100%); }
+  100% { transform: translateX(100%); }
+}
+
+@keyframes glow-pulse {
+  0%, 100% { filter: drop-shadow(0 0 8px rgba(59, 130, 246, 0.3)); }
+  50% { filter: drop-shadow(0 0 16px rgba(59, 130, 246, 0.6)); }
+}
+
+@keyframes water-wave {
+  0%, 100% { background-position: 0% 0%, 100% 0%; }
+  50% { background-position: 100% 0%, 0% 0%; }
+}
+
+@keyframes ocean-glow {
+  0%, 100% { opacity: 0.3; }
+  50% { opacity: 0.5; }
+}
+
+@keyframes deep-pulse {
+  0%, 100% { filter: brightness(1) saturate(1); }
+  50% { filter: brightness(1.05) saturate(1.1); }
+}
+
+@keyframes hex-pulse {
+  0%, 100% { opacity: 0.6; }
+  50% { opacity: 0.9; }
+}
+
+/* Pixel-perfect rendering for game sprites */
+.pixel-perfect {
+  image-rendering: pixelated;
+  image-rendering: -moz-crisp-edges;
+  image-rendering: crisp-edges;
+}
+
+body {
+  @apply bg-gradient-to-b from-orange-700 via-orange-600 to-amber-700 text-slate-100 antialiased;
+  overflow: hidden;
+  background-attachment: fixed;
+}
+
+* {
+  user-select: none;
+  -webkit-tap-highlight-color: transparent;
+}
+
+/* Scrollbar styling for menu */
+.overflow-y-auto {
+  scrollbar-width: thin;
+  scrollbar-color: rgba(252, 114, 1, 0.971) rgba(15, 23, 42, 0.3);
+}
+
+.overflow-y-auto::-webkit-scrollbar {
+  width: 8px;
+}
+
+.overflow-y-auto::-webkit-scrollbar-track {
+  background: rgba(42, 40, 15, 0.3);
+  border-radius: 4px;
+}
+
+.overflow-y-auto::-webkit-scrollbar-thumb {
+  background: linear-gradient(to bottom, rgba(251, 146, 60, 0.7), rgba(249, 115, 22, 0.6));
+  border-radius: 4px;
+  border: 2px solid rgba(15, 23, 42, 0.1);
+  box-shadow: 0 0 6px rgba(251, 146, 60, 0.3);
+}
+
+.overflow-y-auto::-webkit-scrollbar-thumb:hover {
+  background: linear-gradient(to bottom, rgba(251, 146, 60, 0.9), rgba(249, 115, 22, 0.8));
+  box-shadow: 0 0 12px rgba(251, 146, 60, 0.5);
+}
+
+/* Enhanced SVG effects */
+svg {
+  filter: drop-shadow(0 0 2px rgba(0, 0, 0, 0.3));
+}
+
+/* Ship image rendering - crisp and sharp */
+image {
+  filter: none !important;
+  image-rendering: crisp-edges;
+  image-rendering: pixelated;
+}
+
+/* Hex tile enhancements */
+.hex-tile {
+  transition: all 0.2s ease-out;
+}
+
+.hex-tile:hover polygon {
+  filter: brightness(1.15);
+}
+
+/* Ship glow enhancement */
+.ship-glow {
+  animation: glow-pulse 3s ease-in-out infinite;
+}
+
+/* Water animation for board */
+.water-animated {
+  animation: water-wave 8s linear infinite, ocean-glow 4s ease-in-out infinite;
+  background-image: 
+    linear-gradient(90deg, transparent 0%, rgba(59, 130, 246, 0.1) 50%, transparent 100%),
+    linear-gradient(270deg, transparent 0%, rgba(30, 144, 255, 0.15) 50%, transparent 100%);
+  background-size: 200% 100%, 200% 100%;
+  background-repeat: repeat-x;
+}
+
+/* Deep ocean effect */
+.deep-ocean {
+  animation: deep-pulse 6s ease-in-out infinite;
+}
+
+/* Board background enhancement */
+.game-board {
+  background: radial-gradient(circle at center, rgba(15, 23, 42, 0.4) 0%, rgba(15, 23, 42, 0.8) 100%);
+  position: relative;
+}
+
+.game-board::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: 
+    radial-gradient(circle at 20% 50%, rgba(59, 130, 246, 0.05) 0%, transparent 50%),
+    radial-gradient(circle at 80% 80%, rgba(239, 68, 68, 0.05) 0%, transparent 50%);
+  pointer-events: none;
+  border-radius: 0.5rem;
+}
+
+/* Enhanced buttons */
+button {
+  position: relative;
+  overflow: hidden;
+}
+
+button::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.1), transparent);
+  transform: translateX(-100%);
+  transition: transform 0.5s;
+}
+
+button:hover::before {
+  transform: translateX(100%);
+}
+
+/* Card effects for clash royale style */
+.clash-card {
+  position: relative;
+  border-image: linear-gradient(135deg, rgba(255, 255, 255, 0.2), rgba(59, 130, 246, 0.3)) 1;
+  box-shadow: 
+    0 4px 6px rgba(0, 0, 0, 0.3),
+    inset 0 1px 0 rgba(255, 255, 255, 0.1),
+    0 0 20px rgba(59, 130, 246, 0.1);
+}
+
+.clash-card:hover {
+  box-shadow: 
+    0 8px 12px rgba(0, 0, 0, 0.4),
+    inset 0 1px 0 rgba(255, 255, 255, 0.15),
+    0 0 30px rgba(59, 130, 246, 0.2);
+}
+
+/* Optimized text rendering */
+@supports (text-rendering: optimizeLegibility) {
+  body {
+    text-rendering: optimizeLegibility;
+    -webkit-font-smoothing: antialiased;
+  }
+}
+
+/* Volume slider styling */
+.slider {
+  -webkit-appearance: none;
+  appearance: none;
+  background: linear-gradient(to right, #3b82f6 0%, #3b82f6 50%, #374151 50%, #374151 100%);
+  outline: none;
+  border-radius: 8px;
+  transition: background 0.3s ease;
+}
+
+.slider::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  background: #ffffff;
+  cursor: pointer;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+  border: 2px solid #3b82f6;
+  transition: all 0.2s ease;
+}
+
+.slider::-webkit-slider-thumb:hover {
+  background: #f3f4f6;
+  transform: scale(1.1);
+  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.3);
+}
+
+.slider::-moz-range-thumb {
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  background: #ffffff;
+  cursor: pointer;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+  border: 2px solid #3b82f6;
+  transition: all 0.2s ease;
+}
+
+.slider::-moz-range-thumb:hover {
+  background: #f3f4f6;
+  transform: scale(1.1);
+  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.3);
+}
+
+/* Water animation for hex tiles */
+@keyframes waterFlow {
+  0%, 100% {
+    transform: translateX(0) translateY(0) rotate(0deg);
+  }
+  25% {
+    transform: translateX(0.5px) translateY(-0.5px) rotate(0.1deg);
+  }
+  50% {
+    transform: translateX(-0.5px) translateY(0.5px) rotate(-0.1deg);
+  }
+  75% {
+    transform: translateX(0.3px) translateY(-0.3px) rotate(0.05deg);
+  }
+}
+
+@keyframes waterRipple {
+  0%, 100% {
+    opacity: 0.3;
+  }
+  50% {
+    opacity: 0.6;
+  }
+}
+
+@keyframes bubbleRise {
+  0% {
+    transform: translateY(0) scale(0.8);
+    opacity: 0;
+  }
+  10% {
+    opacity: 0.6;
+  }
+  90% {
+    opacity: 0.6;
+  }
+  100% {
+    transform: translateY(-20px) scale(1.2);
+    opacity: 0;
+  }
+}
+
+@keyframes waterShimmer {
+  0%, 100% {
+    opacity: 0.1;
+  }
+  50% {
+    opacity: 0.3;
+  }
+}
+
+@keyframes waveMotion {
+  0%, 100% {
+    transform: translateX(0) translateY(0);
+  }
+  25% {
+    transform: translateX(2px) translateY(-1px);
+  }
+  50% {
+    transform: translateX(-2px) translateY(1px);
+  }
+  75% {
+    transform: translateX(1px) translateY(-0.5px);
+  }
+}
+
+.water-hex {
+  animation: waterFlow 8s ease-in-out infinite;
+}
+
+.water-ripple {
+  animation: waterRipple 4s ease-in-out infinite;
+}
+
+.bubble-animation {
+  animation: bubbleRise 6s ease-out infinite;
+}
+
+.water-shimmer {
+  animation: waterShimmer 6s ease-in-out infinite;
+}
+
+.wave-motion {
+  animation: waveMotion 10s ease-in-out infinite;
+}

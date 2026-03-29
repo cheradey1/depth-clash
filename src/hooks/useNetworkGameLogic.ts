@@ -1,0 +1,314 @@
+import { useEffect, useRef, useCallback, useState } from 'react';
+import io, { Socket } from 'socket.io-client';
+import { GameState, Ship, HexCoord, PlayerID, GRID_HEIGHT, GRID_WIDTH, INITIAL_SHIPS_PER_PLAYER } from '../types';
+import { getGridCoords } from '../utils/hexUtils';
+
+const SERVER_URL = import.meta.env.VITE_SERVER_URL || 'http://localhost:4000';
+
+interface NetworkGameLogicOptions {
+  isOnline: boolean;
+  nickname?: string;
+  roomId?: string;
+}
+
+const buildInitialShips = (): Ship[] => {
+  const allCoords = getGridCoords(GRID_WIDTH, GRID_HEIGHT);
+  const ships: Ship[] = [];
+
+  const p1StartCoords = allCoords.filter(c => c.r >= GRID_HEIGHT - 2);
+  const p2StartCoords = allCoords.filter(c => c.r <= 1);
+
+  for (let i = 0; i < INITIAL_SHIPS_PER_PLAYER; i++) {
+    ships.push({
+      id: `p1-ship-${i}`,
+      owner: 'Player1',
+      coord: p1StartCoords[i] || { q: 0, r: GRID_HEIGHT - 1 },
+      isAlive: true
+    });
+  }
+
+  for (let i = 0; i < INITIAL_SHIPS_PER_PLAYER; i++) {
+    ships.push({
+      id: `p2-ship-${i}`,
+      owner: 'Player2',
+      coord: p2StartCoords[i] || { q: 0, r: 0 },
+      isAlive: true
+    });
+  }
+
+  return ships;
+};
+
+export const useNetworkGameLogic = (options: NetworkGameLogicOptions) => {
+  const socketRef = useRef<Socket | null>(null);
+  const [selfPlayerKey, setSelfPlayerKey] = useState<PlayerID | null>(null);
+  const [state, setState] = useState<GameState>({
+    phase: 'Lobby',
+    currentPlayer: 'Player1',
+    ships: [],
+    turnActions: { hasMoved: false, hasShot: false },
+    setupTimer: 30,
+    winner: null,
+    lastExplosion: null,
+    lastLaunch: null,
+    lastShot: null
+  });
+  
+  const [connectionState, setConnectionState] = useState<'disconnected' | 'connecting' | 'connected'>('disconnected');
+  const [roomInfo, setRoomInfo] = useState<{ roomId: string; playerKey: PlayerID } | null>(null);
+
+  // Initialize WebSocket
+  useEffect(() => {
+    if (!options.isOnline) return;
+
+    const socket = io(SERVER_URL, {
+      reconnection: true,
+      reconnectionDelay: 1000,
+      reconnectionDelayMax: 5000,
+      reconnectionAttempts: 5
+    });
+
+    socketRef.current = socket;
+    setConnectionState('connecting');
+
+    // Connection events
+    socket.on('connect', () => {
+      console.log('[WS] Connected to server');
+      setConnectionState('connected');
+    });
+
+    socket.on('disconnect', () => {
+      console.log('[WS] Disconnected from server');
+      setConnectionState('disconnected');
+    });
+
+    socket.on('connect_error', (error) => {
+      console.error('[WS] Connection error:', error);
+      setConnectionState('disconnected');
+    });
+
+    // Room events
+    socket.on('room_created', (data) => {
+      console.log('[WS] Room created:', data);
+      setRoomInfo({ roomId: data.roomId, playerKey: data.playerKey });
+      setSelfPlayerKey(data.playerKey);
+      setState(prev => ({
+        ...prev,
+        phase: 'Setup',
+        currentPlayer: 'Player1',
+        ships: buildInitialShips(),
+        setupTimer: 30
+      }));
+    });
+
+    socket.on('room_joined', (data) => {
+      console.log('[WS] Room joined:', data);
+      setRoomInfo({ roomId: data.roomId, playerKey: data.playerKey });
+      setSelfPlayerKey(data.playerKey);
+      setState(prev => ({
+        ...prev,
+        phase: 'Setup',
+        currentPlayer: data.playerKey,
+        ships: buildInitialShips(),
+        setupTimer: 30
+      }));
+    });
+
+    socket.on('join_error', (data) => {
+      console.error('[WS] Join error:', data.message);
+      alert(`Error: ${data.message}`);
+    });
+
+    socket.on('player_joined', (data) => {
+      console.log('[WS] Player joined:', data);
+      if (data.readyToStart) {
+        setState(prev => ({ ...prev, phase: 'Setup' }));
+      }
+    });
+
+    socket.on('ship_placed', (data) => {
+      console.log('[WS] Ship placed:', data);
+      setState(prev => {
+        const existing = prev.ships.find(s => s.id === data.shipId && s.owner === data.playerKey);
+        if (existing) {
+          return {
+            ...prev,
+            ships: prev.ships.map(ship => ship.id === data.shipId && ship.owner === data.playerKey ? { ...ship, coord: data.coord } : ship)
+          };
+        }
+
+        return {
+          ...prev,
+          ships: [...prev.ships, { id: data.shipId, owner: data.playerKey, coord: data.coord, isAlive: true }]
+        };
+      });
+    });
+
+    socket.on('setup_start', (data) => {
+      console.log('[WS] Setup phase started');
+      setState(prev => ({
+        ...prev,
+        phase: 'Setup',
+        setupTimer: data.setupTimer
+      }));
+    });
+
+    socket.on('battle_start', (data) => {
+      console.log('[WS] Battle started');
+      setState(prev => ({
+        ...prev,
+        phase: 'Battle',
+        currentPlayer: data.currentPlayer,
+        turnActions: { hasMoved: false, hasShot: false }
+      }));
+    });
+
+    socket.on('ship_moved', (data) => {
+      console.log('[WS] Ship moved:', data);
+      // Update local state with ship movement
+      setState(prev => ({
+        ...prev,
+        ships: prev.ships.map(ship =>
+          ship.id === data.shipId ? { ...ship, coord: data.targetCoord } : ship
+        )
+      }));
+    });
+
+    socket.on('projectile_fired', (data) => {
+      console.log('[WS] Projectile fired');
+      setState(prev => ({
+        ...prev,
+        lastShot: { start: data.originCoord, end: data.targetCoord },
+        lastLaunch: data.originCoord,
+        lastExplosion: data.hit ? data.targetCoord : null
+      }));
+
+      // Remove destroyed ship from local state
+      if (data.hit && data.destroyedShipId) {
+        setState(prev => ({
+          ...prev,
+          ships: prev.ships.filter(ship => ship.id !== data.destroyedShipId)
+        }));
+      }
+    });
+
+    socket.on('turn_ended', (data) => {
+      console.log('[WS] Turn ended, next player:', data.nextPlayer);
+      setState(prev => ({
+        ...prev,
+        currentPlayer: data.nextPlayer,
+        turnActions: { hasMoved: false, hasShot: false }
+      }));
+    });
+
+    socket.on('setup_start', (data) => {
+      console.log('[WS] Setup phase started');
+      setState(prev => ({
+        ...prev,
+        phase: 'Setup',
+        setupTimer: data.setupTimer
+      }));
+    });
+
+    socket.on('opponent_ship_placed', (data) => {
+      console.log('[WS] Opponent placed ship:', data);
+      // Could show opponent ship count for UI feedback
+    });
+
+    socket.on('game_over', (data) => {
+      console.log('[WS] Game over:', data);
+      setState(prev => ({
+        ...prev,
+        phase: 'GameOver',
+        winner: data.winner
+      }));
+    });
+
+    socket.on('room_expired', (data) => {
+      console.log('[WS] Room expired:', data);
+      alert('Room has expired');
+      setRoomInfo(null);
+      setState(prev => ({ ...prev, phase: 'Lobby' }));
+    });
+
+    return () => {
+      socket.disconnect();
+    };
+  }, [options.isOnline]);
+
+  // Game actions
+  const createRoom = useCallback(() => {
+    if (!socketRef.current) return;
+    socketRef.current.emit('create_room', { nickname: options.nickname || 'Player' });
+  }, [options.nickname]);
+
+  const joinRoom = useCallback((roomId: string) => {
+    if (!socketRef.current) return;
+
+    const normalizedRoomId = roomId.toUpperCase();
+    if (roomInfo && roomInfo.roomId === normalizedRoomId) {
+      console.log('[WS] joinRoom skipped: already in room', normalizedRoomId);
+      return;
+    }
+
+    socketRef.current.emit('join_room', { roomId: normalizedRoomId, nickname: options.nickname || 'Player' });
+  }, [options.nickname, roomInfo]);
+
+  const moveShip = useCallback((shipId: string, targetCoord: HexCoord) => {
+    if (!socketRef.current || !roomInfo) return;
+    socketRef.current.emit('move_ship', { shipId, targetCoord });
+  }, [roomInfo]);
+
+  const placeShip = useCallback((shipId: string, coord: HexCoord) => {
+    if (!socketRef.current || !roomInfo || !selfPlayerKey) return;
+
+    // Optimistic local update for player responsiveness
+    setState(prev => ({
+      ...prev,
+      ships: prev.ships.map(ship =>
+        ship.id === shipId && ship.owner === selfPlayerKey ? { ...ship, coord } : ship
+      )
+    }));
+
+    socketRef.current.emit('place_ship', { shipId, coord });
+  }, [roomInfo, selfPlayerKey]);
+
+  const shoot = useCallback((originCoord: HexCoord, targetCoord: HexCoord) => {
+    if (!socketRef.current || !roomInfo) return;
+    socketRef.current.emit('shoot', { originCoord, targetCoord });
+  }, [roomInfo]);
+
+  const endTurn = useCallback(() => {
+    if (!socketRef.current || !roomInfo) return;
+    socketRef.current.emit('end_turn');
+  }, [roomInfo]);
+
+  const playerReady = useCallback(() => {
+    if (!socketRef.current || !roomInfo) return;
+    socketRef.current.emit('player_ready');
+  }, [roomInfo]);
+
+  const startSetup = useCallback(() => {
+    createRoom();
+  }, [createRoom]);
+
+  const startBattle = useCallback(() => {
+    playerReady();
+  }, [playerReady]);
+
+  return {
+    state,
+    selfPlayerKey,
+    moveShip,
+    shoot,
+    endTurn,
+    startBattle,
+    startSetup,
+    placeShip,
+    roomInfo,
+    connectionState,
+    createRoom,
+    joinRoom,
+    isOnline: options.isOnline
+  };
+};

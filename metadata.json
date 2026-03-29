@@ -1,0 +1,5 @@
+{
+  "name": "Depth Clash",
+  "description": "A cartoonish turn-based tactical submarine game on a hexagonal grid with hidden units and strategic missile strikes.",
+  "requestFramePermissions": []
+}

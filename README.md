@@ -1,0 +1,265 @@
+# ⚔️ Depth Clash - Hexagonal Strategy Game
+
+A turn-based submarine warfare game with hexagonal grid strategy gameplay, real-time multiplayer via Socket.io, and AI opponent support. Built with React, TypeScript, Vite, and wrapped for Android with Capacitor.
+
+## 🎮 Features
+
+- **Hexagonal Grid Combat**: 14×11 grid with 154 playable hexes
+- **Turn-Based Strategy**: 30-second setup phase, real-time battle phase
+- **12 Ships Per Player**: Position and command your submarine fleet
+- **Multiplayer via WebSocket**: Real-time PvP matches with Socket.io
+- **AI Opponent**: Challenge the AI in Training mode
+- **Mobile Ready**: Packaged as Android APK via Capacitor
+- **Clash Royale Styling**: 3D effects, animations, and polish
+- **Responsive UI**: Works on 320px to 2560px+ screens
+
+## 🚀 Quick Start (Web)
+
+### Prerequisites
+- Node.js 16+
+- npm or yarn
+
+### Installation
+```bash
+# Install dependencies
+npm install
+
+# Start development server (port 3000)
+npm run dev
+
+# Build for production
+npm run build
+```
+
+### Environment Setup
+Create `.env` file in root:
+```
+VITE_SERVER_URL=http://localhost:4000
+```
+
+### Run Backend Server
+```bash
+cd server
+npm install
+npm start
+# Server runs on port 4000
+```
+
+## 📱 Android Build & Deployment
+
+### Prerequisites
+- Android Studio 3.6+
+- Android SDK API 30+
+- JDK 11+
+
+### Quick Build
+```bash
+# Linux/Mac
+./android-build.sh build      # Build web assets
+./android-build.sh full       # Full pipeline
+
+# Windows
+android-build.bat build       # Build web assets
+android-build.bat full        # Full pipeline
+```
+
+### Step-by-Step Android Deployment
+
+1. **Build Web Assets**
+   ```bash
+   npm run build:android
+   ```
+   This loads `.env.android` with the Android server URL.
+
+2. **Open in Android Studio**
+   The command above will automatically open Android Studio with the Android project.
+
+3. **Build APK**
+   - Select emulator or device
+   - Build → Build Bundle(s)/APK(s) → Build APK(s)
+
+4. **Install on Device**
+   ```bash
+   adb install android/app/build/outputs/apk/debug/app-debug.apk
+   ```
+
+5. **Launch**
+   ```bash
+   adb shell am start -n com.depthclash.game/com.depthclash.game.MainActivity
+   ```
+
+### Android Network Configuration
+
+The Android build automatically uses `.env.android` with:
+- **Server URL**: `http://192.168.0.104:4000` (local network IP)
+- **Purpose**: Allows Android emulator/device to connect to backend server
+- **Update if needed**: Edit `.env.android` if your machine's IP changes:
+  ```bash
+  hostname -I    # Get your IP
+  # Update .env.android with new IP, then rebuild
+  ```
+
+## ✅ Що зроблено
+
+Проект "Depth Clash" реалізує повноцінну гру в жанрі стратегії з підводними човнами на шестикутній сітці. Основні досягнення включають:
+
+- **Ігрова логіка**: Реалізовано ходи гравців, позиціонування кораблів, бойові дії з анімаціями вибухів та снарядів.
+- **Мережева гра**: Підтримка багатокористувацької гри через WebSocket (Socket.io) з лобі для пошуку матчів.
+- **ШІ-суперник**: Режим тренування з комп'ютерним опонентом.
+- **Графічний інтерфейс**: React-компоненти для ігрового поля (HexTile), кораблів (Ship), ефектів бою (CombatEffects), лобі (OnlineGameLobby), магазину (ShopPanel) та підручника (Tutorial).
+- **Серверна частина**: Node.js сервер для обробки з'єднань та ігрової логіки.
+- **Мобільна адаптація**: Інтеграція з Capacitor для збірки Android APK.
+- **Активи**: Графічні ресурси для кораблів, вибухів, снарядів та звуків.
+- **Збірка та деплоймент**: Скрипти для автоматичної збірки веб-активів та Android додатку.
+
+## 📂 Що є в проекті
+
+Структура проекту включає наступні основні папки та файли:
+
+- **src/**: Вихідний код веб-додатку
+  - `App.tsx`: Головний компонент додатку
+  - `main.tsx`: Точка входу React
+  - `components/`: Компоненти інтерфейсу (CombatEffects, HexTile, OnlineGameLobby, Ship, ShopPanel, Tutorial)
+  - `hooks/`: Хуки для логіки гри (useGameLogic, useNetworkGameLogic)
+  - `utils/`: Утилітарні функції (hexUtils)
+  - `assets/`: Графічні ресурси (explosions, projectiles, ships)
+- **server/**: Серверна частина на Node.js
+  - `index.js`: Основний серверний файл
+  - `package.json`: Залежності сервера
+- **android/**: Android-проект для Capacitor
+  - `app/`: Android-додаток з маніфестом, ресурсами та Java-кодом
+  - Gradle-файли для збірки
+- **public/**: Публічні активи (ships, sounds)
+- **Конфігураційні файли**: `package.json`, `vite.config.ts`, `capacitor.config.ts`, `tsconfig.json`
+- **Документація**: `GETTING_STARTED.md`, `PROJECT_STATUS.md`, `PHASE_9_SUMMARY.md` та інші
+
+### Troubleshooting Android Build
+
+| Issue | Solution |
+|-------|----------|
+| Gradle sync fails | File → Sync Now in Android Studio |
+| App won't connect to server | Check `VITE_SERVER_URL` in `.env.android`, verify IP: `hostname -I` |
+| APK won't install | Uninstall first: `adb uninstall com.depthclash.game` |
+| App crashes on start | Check logcat: `adb logcat` |
+
+## 📁 Project Structure
+
+```
+depth-clash/
+├── src/
+│   ├── App.tsx                 # Main game orchestrator
+│   ├── components/
+│   │   ├── HexTile.tsx        # Hexagon grid rendering
+│   │   ├── Ship.tsx           # Ship component
+│   │   ├── CombatEffects.tsx  # Visual effects
+│   │   └── OnlineGameLobby.tsx # Multiplayer UI
+│   ├── hooks/
+│   │   ├── useGameLogic.ts    # Local game state
+│   │   └── useNetworkGameLogic.ts # WebSocket logic
+│   ├── utils/
+│   │   └── hexUtils.ts        # Hex math utilities
+│   └── types.ts               # TypeScript definitions
+├── server/
+│   └── index.js               # Socket.io backend
+├── android/                   # Capacitor Android project
+├── vite.config.ts            # Build configuration
+├── capacitor.config.ts       # Capacitor configuration
+├── .env                      # Local development server URL
+├── .env.android              # Android server URL
+├── package.json              # Dependencies
+├── ANDROID_BUILD_GUIDE.md    # Detailed build guide
+├── PROJECT_STATUS.md         # Development status
+└── README.md                 # This file
+```
+
+## 🛠 Available Scripts
+
+### Web Development
+```bash
+npm run dev              # Start dev server (port 3000)
+npm run build            # Build for production
+npm run preview          # Preview production build
+npm run build:android    # Build for Android + sync Capacitor
+npm run lint             # Run TypeScript checks
+```
+
+### Android Development
+```bash
+npm run android:open     # Open Android project in Android Studio
+npm run android:build    # Build and open Android project
+```
+
+### Server
+```bash
+cd server
+npm start                # Start backend server (port 4000)
+npm run dev              # Start with nodemon
+```
+
+## 💾 Technology Stack
+
+### Frontend
+- **React** 19.0.0 with TypeScript 5.6.3
+- **Vite** 6.4.1 for fast builds
+- **Tailwind CSS** 4.1.14 for styling
+- **Framer Motion** 12.23.24 for animations
+- **Socket.io Client** 4.6.1 for multiplayer
+- **Lucide React** for icons
+- **Capacitor** 7.6.0 for Android wrapping
+
+### Backend
+- **Node.js** v20+
+- **Express** 4.18.2
+- **Socket.io** 4.6.1
+- **CORS** 2.8.5
+
+## 📊 Game Mechanics
+
+- **Grid**: 14 columns × 11 rows = 154 hexagons (45px size)
+- **Ships**: 12 per player
+- **Setup Phase**: 30 seconds
+- **Turn Duration**: Real-time updates via WebSocket
+- **Fog of War**: Ships hidden until within vision range
+- **Combat**: Damage calculation based on distance
+
+## 📝 Build Status
+
+- ✅ Web: Fully functional (port 3000)
+- ✅ Backend: Running on port 4000
+- ✅ Android: Ready for APK generation
+- ✅ TypeScript: Zero errors
+- ✅ Build Size: 423.11 KB (web), optimized for mobile
+
+## 🔗 Documentation
+
+- [ANDROID_BUILD_GUIDE.md](./ANDROID_BUILD_GUIDE.md) - Detailed Android setup
+- [PROJECT_STATUS.md](./PROJECT_STATUS.md) - Full development history
+- [Capacitor Docs](https://capacitorjs.com/)
+- [Vite Documentation](https://vitejs.dev/)
+
+## 👨‍💻 Development
+
+### Adding Features
+1. Update game logic in `src/hooks/useGameLogic.ts`
+2. Add UI components in `src/components/`
+3. Update Socket.io handlers in `src/hooks/useNetworkGameLogic.ts`
+4. Test: `npm run dev`
+5. Build: `npm run build`
+
+### Debugging
+- **Web**: Open DevTools (F12)
+- **Android**: `adb logcat`
+- **Backend**: Server logs in terminal
+
+## 📄 License
+
+MIT
+
+## 🙏 Credits
+
+Developed as a turn-based strategy game with multiplayer support and mobile deployment.
+
+---
+
+**Status**: ✅ Ready for deployment (Web & Android)
+**Last Updated**: Phase 9 (Capacitor Integration Complete)
