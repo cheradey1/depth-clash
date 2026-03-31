@@ -225,7 +225,58 @@ npm run dev              # Start with nodemon
 - **Fog of War**: Ships hidden until within vision range
 - **Combat**: Damage calculation based on distance
 
-## 📝 Build Status
+## � Economy Model: "Ships as Currency"
+
+Depth Clash operates on a **Real-Asset Economy** model where in-game units (submarines/ships) have direct monetary value and limited quantity.
+
+### Core Economic Loop
+
+**1. Acquisition**
+- Players purchase **Premium Ships** in the shop ($1.50 per unit)
+- Earn free ships through AI training (limited quantity per day)
+- Win ships from defeated opponents in tournaments
+
+**2. Staking (Risk)**
+- Tournament entry requires **12-ship stake** (high barrier of entry)
+- Server **locks ships** on player account during match (prevents double-spending)
+- Failed tournament run = loss of all 12 ships to opponent
+
+**3. Battle Outcomes**
+- **Victory**: Opponent's 12 ships transfer to your inventory
+- **Defeat**: Your 12 ships deducted from balance and awarded to winner
+
+**4. Liquidation**
+- Players can **sell accumulated ships** back to shop at market rate ($1.00 per unit)
+- **Withdraw funds** via PayPal/Stripe integration
+- Incentivizes competitive play for real earnings
+
+### Technical Implementation
+
+**Server-Side Authority**
+- ✅ All balance changes through **ACID database transactions** (PostgreSQL/MongoDB)
+- ✅ Client has **zero access** to balance (prevents cheating)
+- ✅ Every action validated on Node.js backend: ship count checks, payment validation, transaction logging
+
+**Anti-Fraud Measures**
+- 🔒 Atomic transactions prevent asset duplication
+- 📝 Every transaction logged with unique `tx_id` for audit trail
+- 🚫 Replay attack prevention via nonce-based requests
+- ⏱️ Transaction timeout = failure (no hanging states)
+
+**Asset Locking During Match**
+```
+User Balance: 50 ships
+↓ [Enters Tournament with 12-ship stake]
+↓ [Server locks 12 ships]
+Spendable: 38 ships
+↓ [Match resolves: Win/Loss]
+↓ [Ships released or transferred to opponent]
+[New balance: 62 ships (victory) OR 38 ships (defeat)]
+```
+
+---
+
+## �📝 Build Status
 
 - ✅ Web: Fully functional (port 3000)
 - ✅ Backend: Running on port 4000
