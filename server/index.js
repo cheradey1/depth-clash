@@ -3,6 +3,10 @@ const http = require('http');
 const socketIo = require('socket.io');
 const cors = require('cors');
 const { v4: uuidv4 } = require('uuid');
+const db = require('./db');
+const User = require('./models/User');
+const matchmaker = require('./logic/matchmaker');
+const paymentsRouter = require('./routes/payments');
 
 const app = express();
 const server = http.createServer(app);
@@ -20,9 +24,13 @@ const io = socketIo(server, {
 
 app.use(cors());
 app.use(express.json());
+app.use('/payments', paymentsRouter);
+
+db.init().catch(error => console.error('[DB] initialization failed:', error));
 
 // Game rooms storage
 const gameRooms = new Map();
+const activeMatches = gameRooms;
 
 // Player sessions storage
 const playerSessions = new Map();
@@ -33,6 +41,7 @@ class GameRoom {
   constructor(roomId) {
     this.roomId = roomId;
     this.players = {};
+    this.scores = {};
     this.status = 'waiting'; // waiting, setup, battle, gameover
     this.currentPlayer = 'Player1';
     this.setupTimer = 30;
@@ -48,28 +57,36 @@ class GameRoom {
     };
   }
 
-  addPlayer(socketId, nickname) {
-    const playerKey = Object.keys(this.players).length === 0 ? 'Player1' : 'Player2';
+  addPlayer(socketId, nickname, userId) {
+    const playerKey = Object.keys(this.players).filter(id => !this.players[id]?.disconnected).length === 0 ? 'Player1' : 'Player2';
     this.players[socketId] = {
       id: socketId,
+      socketId,
+      userId,
       nickname: nickname || playerKey,
-      playerKey: playerKey,
+      playerKey,
       ready: false,
+      disconnected: false,
+      disconnectedAt: null,
       ships: []
     };
+    this.scores[socketId] = 0;
     return playerKey;
   }
 
   removePlayer(socketId) {
-    delete this.players[socketId];
+    if (this.players[socketId]) {
+      this.players[socketId].disconnected = true;
+      this.players[socketId].disconnectedAt = Date.now();
+    }
   }
 
   isFull() {
-    return Object.keys(this.players).length === 2;
+    return Object.values(this.players).filter(player => !player.disconnected).length === 2;
   }
 
   isEmpty() {
-    return Object.keys(this.players).length === 0;
+    return Object.values(this.players).every(player => player.disconnected);
   }
 
   getOpponentKey(playerKey) {
@@ -77,31 +94,74 @@ class GameRoom {
   }
 }
 
+const findPlayerSocketByUserId = (room, userId) => {
+  return Object.keys(room.players).find(socketId => room.players[socketId]?.userId === userId);
+};
+
+const transferPlayerSocket = (room, oldSocketId, newSocketId) => {
+  const oldPlayer = room.players[oldSocketId];
+  if (!oldPlayer) return null;
+
+  const updatedPlayer = {
+    ...oldPlayer,
+    id: newSocketId,
+    socketId: newSocketId,
+    disconnected: false,
+    disconnectedAt: null
+  };
+
+  delete room.players[oldSocketId];
+  room.players[newSocketId] = updatedPlayer;
+
+  if (room.scores[oldSocketId] !== undefined) {
+    room.scores[newSocketId] = room.scores[oldSocketId];
+    delete room.scores[oldSocketId];
+  }
+
+  return updatedPlayer;
+};
+
+const handleShipTransfer = db.handleMatchReward;
+
 // ============ SOCKET.IO EVENTS ============
 
 io.on('connection', (socket) => {
   console.log(`[CONNECTION] Player connected: ${socket.id}`);
 
   // CREATE ROOM
-  socket.on('create_room', (data) => {
+  socket.on('create_room', async (data) => {
+    const userId = data.userId || socket.id;
+    const nickname = data.nickname || 'Player';
+
+    const user = await User.ensureUser(userId, socket.id, nickname);
+    if (user.is_in_match) {
+      socket.emit('room_error', { message: 'You are already in an active match' });
+      return;
+    }
+
+    await db.ensurePlayerShips(userId);
+
     const roomId = Math.random().toString(36).substring(2, 8).toUpperCase();
     const room = new GameRoom(roomId);
-    const playerKey = room.addPlayer(socket.id, data.nickname);
+    const playerKey = room.addPlayer(socket.id, nickname, userId);
 
     gameRooms.set(roomId, room);
-    playerSessions.set(socket.id, { roomId, playerKey });
+    playerSessions.set(socket.id, { roomId, playerKey, userId });
 
     socket.join(roomId);
     socket.emit('room_created', { roomId, playerKey });
-    console.log(`[ROOM] Created room: ${roomId}, Nickname: ${data.nickname}, PlayerKey: ${playerKey}, SocketID: ${socket.id}`);
+    const inventory = await User.getUserById(userId);
+    socket.emit('inventory', inventory);
+    console.log(`[ROOM] Created room: ${roomId}, Nickname: ${nickname}, PlayerKey: ${playerKey}, SocketID: ${socket.id}, UserID: ${userId}`);
   });
 
   // JOIN ROOM
-  socket.on('join_room', (data) => {
-    const { roomId, nickname } = data;
+  socket.on('join_room', async (data) => {
+    const { roomId, nickname, userId: requestedUserId } = data;
+    const userId = requestedUserId || socket.id;
     const room = gameRooms.get(roomId);
 
-    console.log(`[JOIN] Attempt to join room: ${roomId}, Nickname: ${nickname}, SocketID: ${socket.id}`);
+    console.log(`[JOIN] Attempt to join room: ${roomId}, Nickname: ${nickname}, SocketID: ${socket.id}, UserID: ${userId}`);
 
     if (!room) {
       socket.emit('join_error', { message: 'Room not found' });
@@ -115,11 +175,21 @@ io.on('connection', (socket) => {
       return;
     }
 
-    const playerKey = room.addPlayer(socket.id, nickname);
-    playerSessions.set(socket.id, { roomId, playerKey });
+    const user = await User.ensureUser(userId, socket.id, nickname || 'Player');
+    if (user.is_in_match) {
+      socket.emit('join_error', { message: 'You are already in an active match' });
+      return;
+    }
+
+    await db.ensurePlayerShips(userId);
+
+    const playerKey = room.addPlayer(socket.id, nickname, userId);
+    playerSessions.set(socket.id, { roomId, playerKey, userId });
 
     socket.join(roomId);
     socket.emit('room_joined', { roomId, playerKey });
+    const inventory = await User.getUserById(userId);
+    socket.emit('inventory', inventory);
 
     // Get all players info
     const players_in_room = Object.values(room.players).map(p => ({
@@ -145,7 +215,7 @@ io.on('connection', (socket) => {
   });
 
   // PLAYER READY (After setup phase)
-  socket.on('player_ready', () => {
+  socket.on('player_ready', async () => {
     const session = playerSessions.get(socket.id);
     if (!session) return;
 
@@ -157,8 +227,32 @@ io.on('connection', (socket) => {
     const allReady = Object.values(room.players).every(p => p.ready);
     if (allReady && room.status === 'setup') {
       room.status = 'battle';
+      const playerEntries = Object.keys(room.players).map(socketId => ({
+        socketId,
+        userId: playerSessions.get(socketId)?.userId
+      }));
+      await Promise.all(playerEntries.map(entry => {
+        if (entry.userId) {
+          return Promise.all([
+            db.lockPlayerShips(entry.userId, true),
+            User.setInMatch(entry.userId, true)
+          ]);
+        }
+        return Promise.resolve();
+      }));
+      // Store all ships on server for Fog of War (before sending to client)
+      room.gameState.playerShips = {};
+      Object.keys(room.players).forEach(socketId => {
+        const playerKey = room.players[socketId].playerKey;
+        room.gameState.playerShips[playerKey] = room.players[socketId].ships.map(ship => ({
+          ...ship,
+          id: ship.id
+        }));
+      });
+
       io.to(session.roomId).emit('battle_start', {
-        currentPlayer: room.currentPlayer
+        currentPlayer: room.currentPlayer,
+        enemyShipCount: 12
       });
       console.log(`[BATTLE] Battle started in room: ${session.roomId}`);
     }
@@ -185,8 +279,8 @@ io.on('connection', (socket) => {
       playerShips.push({ id: shipId, coord, isAlive: true });
     }
 
-    // Broadcast ship placement to all players in room (works for both host and guest)
-    io.to(session.roomId).emit('ship_placed', {
+    // Send ship placement only to the owner; opponent receives a count hint.
+    socket.emit('ship_placed', {
       playerKey: session.playerKey,
       shipId,
       coord
@@ -224,8 +318,8 @@ io.on('connection', (socket) => {
     const { shipId, targetCoord } = data;
     room.gameState.turnActions.hasMoved = true;
 
-    // Broadcast to both players (hide opponent ships)
-    io.to(session.roomId).emit('ship_moved', {
+    // Send movement only to the owner. Opponent is not given the exact coordinates.
+    socket.emit('ship_moved', {
       shipId,
       targetCoord,
       playerKey: session.playerKey
@@ -234,45 +328,67 @@ io.on('connection', (socket) => {
     console.log(`[MOVE] ${session.playerKey} moved ship ${shipId} in room ${session.roomId}`);
   });
 
-  // SHOOT
-  socket.on('shoot', (data) => {
+  // FIRE SHOT
+  const handleFireShot = async (data) => {
     const session = playerSessions.get(socket.id);
     if (!session) return;
 
     const room = gameRooms.get(session.roomId);
     if (!room || room.status !== 'battle') return;
 
-    // Validate: only current player can shoot
     if (room.currentPlayer !== session.playerKey) {
       socket.emit('action_error', { message: 'Not your turn' });
       return;
     }
 
     const { originCoord, targetCoord } = data;
+    const originShip = room.players[socket.id].ships.find(ship =>
+      ship.coord.q === originCoord.q &&
+      ship.coord.r === originCoord.r
+    );
+
+    if (!originShip) {
+      socket.emit('action_error', { message: 'Invalid firing ship' });
+      return;
+    }
+
+    const hasShotToken = await db.spendShotToken(session.userId, 1);
+    if (!hasShotToken) {
+      socket.emit('action_error', { message: 'Not enough premium ship currency to shoot' });
+      return;
+    }
+
     const opponentKey = room.getOpponentKey(session.playerKey);
     const opponentSocketId = Object.keys(room.players).find(id => room.players[id].playerKey === opponentKey);
 
-    // Check if target has ship and apply damage/destruction
     let hit = false;
-    let destroyedShipId = null;
 
-    if (opponentSocketId) {
-      const opponentShips = room.players[opponentSocketId].ships;
+    if (opponentSocketId && room.gameState.playerShips) {
+      const opponentShips = room.gameState.playerShips[opponentKey] || [];
       const targetShipIndex = opponentShips.findIndex(ship =>
         ship.coord.q === targetCoord.q &&
-        ship.coord.r === targetCoord.r &&
-        ship.coord.s === targetCoord.s
+        ship.coord.r === targetCoord.r
       );
 
       if (targetShipIndex !== -1) {
         hit = true;
-        destroyedShipId = opponentShips[targetShipIndex].id;
-        opponentShips.splice(targetShipIndex, 1); // Remove destroyed ship
+        room.scores[socket.id] = (room.scores[socket.id] || 0) + 1;
+        // Remove ship from server-side list (fog of war)
+        opponentShips.splice(targetShipIndex, 1);
+        // Also remove from player ships for cleanup
+        room.players[opponentSocketId].ships = room.players[opponentSocketId].ships.filter(s => 
+          !(s.coord.q === targetCoord.q && s.coord.r === targetCoord.r)
+        );
 
-        // Check if opponent has no ships left
         if (opponentShips.length === 0) {
           room.status = 'gameover';
           room.gameState.winner = session.playerKey;
+          const opponentSession = playerSessions.get(opponentSocketId);
+          const opponentUserId = opponentSession ? opponentSession.userId : null;
+          await Promise.all([
+            db.lockPlayerShips(session.userId, false),
+            opponentUserId ? db.lockPlayerShips(opponentUserId, false) : Promise.resolve()
+          ]);
           io.to(session.roomId).emit('game_over', {
             winner: session.playerKey,
             loser: opponentKey
@@ -286,16 +402,157 @@ io.on('connection', (socket) => {
     room.gameState.lastShot = { start: originCoord, end: targetCoord };
     room.gameState.turnActions.hasShot = true;
 
-    // Broadcast to both players
-    io.to(session.roomId).emit('projectile_fired', {
+    io.to(session.roomId).emit('shot_result', {
       shooterKey: session.playerKey,
       originCoord,
       targetCoord,
-      hit,
-      destroyedShipId
+      hit
     });
 
-    console.log(`[SHOOT] ${session.playerKey} fired at ${JSON.stringify(targetCoord)} in room ${session.roomId} - ${hit ? 'HIT!' : 'MISS'}`);
+    console.log(`[FIRE_SHOT] ${session.playerKey} fired at ${JSON.stringify(targetCoord)} in room ${session.roomId} - ${hit ? 'HIT!' : 'MISS'}`);
+  };
+
+  socket.on('fire_shot', handleFireShot);
+  socket.on('shoot', handleFireShot);
+
+  socket.on('game_over', async (data) => {
+    const { matchId, winnerId } = data || {};
+    const match = activeMatches.get(matchId);
+    if (!match) return;
+
+    const session = playerSessions.get(socket.id);
+    if (!session) return;
+
+    const opponentSocketId = Object.keys(match.players).find(id => id !== socket.id && !match.players[id].disconnected);
+    const actualWinner = match.scores[socket.id] >= 12 ? socket.id :
+                         opponentSocketId && match.scores[opponentSocketId] >= 12 ? opponentSocketId : null;
+
+    if (!actualWinner) {
+      console.error('[CHEAT] game_over received but no player has 12 kills:', { matchId, winnerId, scores: match.scores });
+      socket.emit('game_over_invalid', { message: 'No valid winner yet' });
+      return;
+    }
+
+    const validWinnerIds = [actualWinner, match.players[actualWinner]?.playerKey, match.players[actualWinner]?.userId].filter(Boolean);
+    if (validWinnerIds.includes(winnerId)) {
+      const loserSocketId = actualWinner === socket.id ? opponentSocketId : socket.id;
+      const winnerSession = playerSessions.get(actualWinner);
+      const loserSession = loserSocketId ? playerSessions.get(loserSocketId) : null;
+      const rewardResult = await db.handleMatchReward(matchId, winnerSession?.userId, loserSession?.userId);
+      socket.emit('game_over_validated', { matchId, winnerId, rewardResult });
+      console.log('[MATCH] game_over validated for', winnerId, 'in', matchId, '- reward:', rewardResult.success);
+    } else {
+      console.error('[CHEAT] Invalid game_over payload!', { matchId, winnerId, actualWinner });
+      socket.emit('game_over_invalid', { message: 'Invalid result data' });
+    }
+  });
+
+  socket.on('reconnect_to_match', async (data) => {
+    const { matchId, userId } = data || {};
+    const room = activeMatches.get(matchId);
+    if (!room) {
+      socket.emit('reconnect_failed', { message: 'Match not found' });
+      return;
+    }
+
+    const oldSocketId = findPlayerSocketByUserId(room, userId);
+    if (!oldSocketId) {
+      socket.emit('reconnect_failed', { message: 'No disconnected player found for this match' });
+      return;
+    }
+
+    const oldPlayer = room.players[oldSocketId];
+    if (!oldPlayer?.disconnected) {
+      socket.emit('reconnect_failed', { message: 'Player already connected' });
+      return;
+    }
+
+    const restoredPlayer = transferPlayerSocket(room, oldSocketId, socket.id);
+    if (!restoredPlayer) {
+      socket.emit('reconnect_failed', { message: 'Unable to restore match session' });
+      return;
+    }
+
+    playerSessions.set(socket.id, { roomId: matchId, playerKey: restoredPlayer.playerKey, userId });
+    await db.updateSocketId(userId, socket.id);
+    socket.join(matchId);
+
+    socket.emit('reconnect_success', {
+      roomId: matchId,
+      playerKey: restoredPlayer.playerKey,
+      phase: room.status,
+      currentPlayer: room.currentPlayer,
+      ships: restoredPlayer.ships,
+      opponentShipCount: Object.values(room.players).filter(player => player.playerKey !== restoredPlayer.playerKey && !player.disconnected).reduce((sum, player) => sum + player.ships.length, 0)
+    });
+
+    io.to(matchId).emit('opponent_reconnected', {
+      playerKey: restoredPlayer.playerKey
+    });
+  });
+
+  socket.on('get_inventory', async () => {
+    const session = playerSessions.get(socket.id);
+    if (!session) return;
+    const inventory = await db.getUserInventory(session.userId);
+    socket.emit('inventory', inventory);
+  });
+
+  socket.on('buy_premium_ship', async (data) => {
+    const session = playerSessions.get(socket.id);
+    if (!session) return;
+
+    const cost = data?.cost || 10;
+    const purchase = await db.purchasePremiumShip(session.userId, cost);
+    if (!purchase) {
+      socket.emit('action_error', { message: 'Insufficient currency to buy premium ship' });
+      return;
+    }
+    socket.emit('inventory_updated', purchase);
+  });
+
+  socket.on('join_tournament', async () => {
+    const session = playerSessions.get(socket.id);
+    if (!session) return;
+
+    const user = await User.getUserById(session.userId);
+    if (!user) {
+      socket.emit('action_error', { message: 'Unable to load user inventory' });
+      return;
+    }
+
+    if (user.is_in_match) {
+      socket.emit('action_error', { message: 'You are already in an active match' });
+      return;
+    }
+
+    if (user.premium_ship_count < 12) {
+      socket.emit('action_error', { message: 'You need at least 12 premium ships to join the tournament' });
+      return;
+    }
+
+    const reserved = await User.reservePremiumShips(session.userId, 12);
+    if (!reserved) {
+      socket.emit('action_error', { message: 'Unable to reserve premium ships for tournament' });
+      return;
+    }
+
+    await User.setInMatch(session.userId, true);
+
+    const matched = matchmaker.addToQueue(socket.id, session.userId);
+    if (matched) {
+      matched.players.forEach((playerSocketId) => {
+        io.to(playerSocketId).emit('tournament_match_found', {
+          matchId: matched.matchId,
+          players: matched.players,
+          pool: matched.pool
+        });
+      });
+    } else {
+      socket.emit('tournament_waiting', {
+        message: 'Waiting for an opponent in the tournament queue...'
+      });
+    }
   });
 
   // END TURN
@@ -330,11 +587,29 @@ io.on('connection', (socket) => {
   });
 
   // DISCONNECT
-  socket.on('disconnect', () => {
+  socket.on('disconnect', async () => {
     const session = playerSessions.get(socket.id);
     if (!session) {
       console.log(`[DISCONNECT] Player ${socket.id} disconnected (no session)`);
       return;
+    }
+
+    const user = await User.getUserById(session.userId);
+    if (user && user.is_in_match) {
+      await User.setInMatch(session.userId, false);
+      await db.lockPlayerShips(session.userId, false);
+    }
+
+    const tournamentMatch = matchmaker.findMatchBySocket(socket.id);
+    if (tournamentMatch) {
+      const result = matchmaker.resolveMatchQuit(tournamentMatch.matchId, socket.id);
+      if (result && result.winnerSocketId) {
+        io.to(result.winnerSocketId).emit('tournament_victory', {
+          matchId: tournamentMatch.matchId,
+          message: 'Your opponent left the tournament. You win the pool!'
+        });
+      }
+      matchmaker.removeMatch(tournamentMatch.matchId);
     }
 
     const room = gameRooms.get(session.roomId);

@@ -1,37 +1,34 @@
 import { useEffect, useRef, useCallback, useState } from 'react';
 import io, { Socket } from 'socket.io-client';
-import { GameState, Ship, HexCoord, PlayerID, GRID_HEIGHT, GRID_WIDTH, INITIAL_SHIPS_PER_PLAYER } from '../types';
+import { GameState, GamePhase, Ship, HexCoord, PlayerID, GRID_HEIGHT, GRID_WIDTH, INITIAL_SHIPS_PER_PLAYER } from '../types';
 import { getGridCoords } from '../utils/hexUtils';
 
-const SERVER_URL = import.meta.env.VITE_SERVER_URL || 'http://localhost:4000';
+const SERVER_URL = (import.meta as any).env?.VITE_SERVER_URL || 'http://localhost:4000';
 
 interface NetworkGameLogicOptions {
   isOnline: boolean;
   nickname?: string;
   roomId?: string;
+  onShotHit?: (hit: boolean) => void;
+  onGameOver?: (winner: string, wasVictory: boolean) => void;
 }
 
-const buildInitialShips = (): Ship[] => {
-  const allCoords = getGridCoords(GRID_WIDTH, GRID_HEIGHT);
-  const ships: Ship[] = [];
-
-  const p1StartCoords = allCoords.filter(c => c.r >= GRID_HEIGHT - 2);
-  const p2StartCoords = allCoords.filter(c => c.r <= 1);
-
-  for (let i = 0; i < INITIAL_SHIPS_PER_PLAYER; i++) {
-    ships.push({
-      id: `p1-ship-${i}`,
-      owner: 'Player1',
-      coord: p1StartCoords[i] || { q: 0, r: GRID_HEIGHT - 1 },
-      isAlive: true
-    });
+const buildInitialShips = (owner: PlayerID | null): Ship[] => {
+  if (!owner) {
+    return [];
   }
 
+  const allCoords = getGridCoords(GRID_WIDTH, GRID_HEIGHT);
+  const ships: Ship[] = [];
+  const startCoords = owner === 'Player1'
+    ? allCoords.filter(c => c.r >= GRID_HEIGHT - 2)
+    : allCoords.filter(c => c.r <= 1);
+
   for (let i = 0; i < INITIAL_SHIPS_PER_PLAYER; i++) {
     ships.push({
-      id: `p2-ship-${i}`,
-      owner: 'Player2',
-      coord: p2StartCoords[i] || { q: 0, r: 0 },
+      id: `${owner.toLowerCase()}-ship-${i}`,
+      owner,
+      coord: startCoords[i] || { q: 0, r: owner === 'Player1' ? GRID_HEIGHT - 1 : 0 },
       isAlive: true
     });
   }
@@ -42,8 +39,16 @@ const buildInitialShips = (): Ship[] => {
 export const useNetworkGameLogic = (options: NetworkGameLogicOptions) => {
   const socketRef = useRef<Socket | null>(null);
   const [selfPlayerKey, setSelfPlayerKey] = useState<PlayerID | null>(null);
+  const [userId] = useState<string>(() => {
+    if (typeof window === 'undefined') return `guest-${Math.random().toString(36).substring(2, 10)}`;
+    const stored = window.localStorage.getItem('depth-clash-user-id');
+    if (stored) return stored;
+    const generated = window.crypto?.randomUUID?.() || `user-${Math.random().toString(36).substring(2, 10)}`;
+    window.localStorage.setItem('depth-clash-user-id', generated);
+    return generated;
+  });
   const [state, setState] = useState<GameState>({
-    phase: 'Lobby',
+    phase: GamePhase.Lobby,
     currentPlayer: 'Player1',
     ships: [],
     turnActions: { hasMoved: false, hasShot: false },
@@ -56,6 +61,7 @@ export const useNetworkGameLogic = (options: NetworkGameLogicOptions) => {
   
   const [connectionState, setConnectionState] = useState<'disconnected' | 'connecting' | 'connected'>('disconnected');
   const [roomInfo, setRoomInfo] = useState<{ roomId: string; playerKey: PlayerID } | null>(null);
+  const [inventory, setInventory] = useState<{ currency_balance: number; premium_ship_count: number } | null>(null);
 
   // Initialize WebSocket
   useEffect(() => {
@@ -75,6 +81,14 @@ export const useNetworkGameLogic = (options: NetworkGameLogicOptions) => {
     socket.on('connect', () => {
       console.log('[WS] Connected to server');
       setConnectionState('connected');
+
+      if (typeof window !== 'undefined') {
+        const savedMatchId = window.localStorage.getItem('activeMatchId');
+        if (savedMatchId) {
+          console.log('[WS] Attempting reconnect to saved match:', savedMatchId);
+          socket.emit('reconnect_to_match', { matchId: savedMatchId, userId });
+        }
+      }
     });
 
     socket.on('disconnect', () => {
@@ -92,11 +106,14 @@ export const useNetworkGameLogic = (options: NetworkGameLogicOptions) => {
       console.log('[WS] Room created:', data);
       setRoomInfo({ roomId: data.roomId, playerKey: data.playerKey });
       setSelfPlayerKey(data.playerKey);
+      if (typeof window !== 'undefined') {
+        window.localStorage.setItem('activeMatchId', data.roomId);
+      }
       setState(prev => ({
         ...prev,
-        phase: 'Setup',
+        phase: GamePhase.Setup,
         currentPlayer: 'Player1',
-        ships: buildInitialShips(),
+        ships: buildInitialShips(data.playerKey),
         setupTimer: 30
       }));
     });
@@ -105,13 +122,26 @@ export const useNetworkGameLogic = (options: NetworkGameLogicOptions) => {
       console.log('[WS] Room joined:', data);
       setRoomInfo({ roomId: data.roomId, playerKey: data.playerKey });
       setSelfPlayerKey(data.playerKey);
+      if (typeof window !== 'undefined') {
+        window.localStorage.setItem('activeMatchId', data.roomId);
+      }
       setState(prev => ({
         ...prev,
-        phase: 'Setup',
+        phase: GamePhase.Setup,
         currentPlayer: data.playerKey,
-        ships: buildInitialShips(),
+        ships: buildInitialShips(data.playerKey),
         setupTimer: 30
       }));
+    });
+
+    socket.on('inventory', (data) => {
+      console.log('[WS] Inventory loaded:', data);
+      setInventory(data);
+    });
+
+    socket.on('inventory_updated', (data) => {
+      console.log('[WS] Inventory updated:', data);
+      setInventory(data);
     });
 
     socket.on('join_error', (data) => {
@@ -122,7 +152,7 @@ export const useNetworkGameLogic = (options: NetworkGameLogicOptions) => {
     socket.on('player_joined', (data) => {
       console.log('[WS] Player joined:', data);
       if (data.readyToStart) {
-        setState(prev => ({ ...prev, phase: 'Setup' }));
+        setState(prev => ({ ...prev, phase: GamePhase.Setup }));
       }
     });
 
@@ -148,7 +178,7 @@ export const useNetworkGameLogic = (options: NetworkGameLogicOptions) => {
       console.log('[WS] Setup phase started');
       setState(prev => ({
         ...prev,
-        phase: 'Setup',
+        phase: GamePhase.Setup,
         setupTimer: data.setupTimer
       }));
     });
@@ -157,7 +187,7 @@ export const useNetworkGameLogic = (options: NetworkGameLogicOptions) => {
       console.log('[WS] Battle started');
       setState(prev => ({
         ...prev,
-        phase: 'Battle',
+        phase: GamePhase.Battle,
         currentPlayer: data.currentPlayer,
         turnActions: { hasMoved: false, hasShot: false }
       }));
@@ -174,22 +204,48 @@ export const useNetworkGameLogic = (options: NetworkGameLogicOptions) => {
       }));
     });
 
-    socket.on('projectile_fired', (data) => {
-      console.log('[WS] Projectile fired');
+    socket.on('shot_result', (data) => {
+      console.log('[WS] Shot result');
       setState(prev => ({
         ...prev,
         lastShot: { start: data.originCoord, end: data.targetCoord },
         lastLaunch: data.originCoord,
         lastExplosion: data.hit ? data.targetCoord : null
       }));
-
-      // Remove destroyed ship from local state
-      if (data.hit && data.destroyedShipId) {
-        setState(prev => ({
-          ...prev,
-          ships: prev.ships.filter(ship => ship.id !== data.destroyedShipId)
-        }));
+      if (data.hit && options.onShotHit) {
+        options.onShotHit(true);
       }
+    });
+
+    socket.on('ship_destroyed', (data) => {
+      console.log('[WS] Ship destroyed:', data);
+      setState(prev => ({
+        ...prev,
+        ships: prev.ships.filter(ship => ship.id !== data.shipId)
+      }));
+    });
+
+    socket.on('reconnect_success', (data) => {
+      console.log('[WS] Reconnect successful:', data);
+      if (typeof window !== 'undefined') {
+        window.localStorage.setItem('activeMatchId', data.roomId);
+      }
+      setRoomInfo({ roomId: data.roomId, playerKey: data.playerKey });
+      setSelfPlayerKey(data.playerKey);
+      setState(prev => ({
+        ...prev,
+        phase: data.phase === 'battle' ? GamePhase.Battle : data.phase === 'setup' ? GamePhase.Setup : GamePhase.Lobby,
+        currentPlayer: data.currentPlayer || prev.currentPlayer,
+        ships: data.ships || prev.ships
+      }));
+    });
+
+    socket.on('reconnect_failed', (data) => {
+      console.warn('[WS] Reconnect failed:', data);
+      if (typeof window !== 'undefined') {
+        window.localStorage.removeItem('activeMatchId');
+      }
+      if (data?.message) alert(`Reconnect failed: ${data.message}`);
     });
 
     socket.on('turn_ended', (data) => {
@@ -205,7 +261,7 @@ export const useNetworkGameLogic = (options: NetworkGameLogicOptions) => {
       console.log('[WS] Setup phase started');
       setState(prev => ({
         ...prev,
-        phase: 'Setup',
+        phase: GamePhase.Setup,
         setupTimer: data.setupTimer
       }));
     });
@@ -217,18 +273,28 @@ export const useNetworkGameLogic = (options: NetworkGameLogicOptions) => {
 
     socket.on('game_over', (data) => {
       console.log('[WS] Game over:', data);
+      if (typeof window !== 'undefined') {
+        window.localStorage.removeItem('activeMatchId');
+      }
       setState(prev => ({
         ...prev,
-        phase: 'GameOver',
+        phase: GamePhase.GameOver,
         winner: data.winner
       }));
+      if (options.onGameOver) {
+        const wasVictory = selfPlayerKey === data.winner;
+        options.onGameOver(data.winner, wasVictory);
+      }
     });
 
     socket.on('room_expired', (data) => {
       console.log('[WS] Room expired:', data);
+      if (typeof window !== 'undefined') {
+        window.localStorage.removeItem('activeMatchId');
+      }
       alert('Room has expired');
       setRoomInfo(null);
-      setState(prev => ({ ...prev, phase: 'Lobby' }));
+      setState(prev => ({ ...prev, phase: GamePhase.Lobby }));
     });
 
     return () => {
@@ -239,8 +305,8 @@ export const useNetworkGameLogic = (options: NetworkGameLogicOptions) => {
   // Game actions
   const createRoom = useCallback(() => {
     if (!socketRef.current) return;
-    socketRef.current.emit('create_room', { nickname: options.nickname || 'Player' });
-  }, [options.nickname]);
+    socketRef.current.emit('create_room', { userId, nickname: options.nickname || 'Player' });
+  }, [options.nickname, userId]);
 
   const joinRoom = useCallback((roomId: string) => {
     if (!socketRef.current) return;
@@ -251,8 +317,12 @@ export const useNetworkGameLogic = (options: NetworkGameLogicOptions) => {
       return;
     }
 
-    socketRef.current.emit('join_room', { roomId: normalizedRoomId, nickname: options.nickname || 'Player' });
-  }, [options.nickname, roomInfo]);
+    socketRef.current.emit('join_room', {
+      roomId: normalizedRoomId,
+      nickname: options.nickname || 'Player',
+      userId
+    });
+  }, [options.nickname, roomInfo, userId]);
 
   const moveShip = useCallback((shipId: string, targetCoord: HexCoord) => {
     if (!socketRef.current || !roomInfo) return;
@@ -283,6 +353,16 @@ export const useNetworkGameLogic = (options: NetworkGameLogicOptions) => {
     socketRef.current.emit('end_turn');
   }, [roomInfo]);
 
+  const requestInventory = useCallback(() => {
+    if (!socketRef.current) return;
+    socketRef.current.emit('get_inventory');
+  }, []);
+
+  const buyPremiumShip = useCallback((cost = 10) => {
+    if (!socketRef.current) return;
+    socketRef.current.emit('buy_premium_ship', { cost });
+  }, []);
+
   const playerReady = useCallback(() => {
     if (!socketRef.current || !roomInfo) return;
     socketRef.current.emit('player_ready');
@@ -309,6 +389,9 @@ export const useNetworkGameLogic = (options: NetworkGameLogicOptions) => {
     connectionState,
     createRoom,
     joinRoom,
+    requestInventory,
+    buyPremiumShip,
+    inventory,
     isOnline: options.isOnline
   };
 };

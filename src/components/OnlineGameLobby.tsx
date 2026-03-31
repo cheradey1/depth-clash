@@ -15,6 +15,7 @@ interface OnlineGameLobbyProps {
 export const OnlineGameLobby: React.FC<OnlineGameLobbyProps> = ({
   connectionState,
   roomId,
+  isHost,
   onCreateRoom,
   onJoinRoom,
   onSetNickname,

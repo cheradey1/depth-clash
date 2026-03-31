@@ -6,3 +6,22 @@ coverage/
 *.log
 .env*
 !.env.example
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Android build
+android/.gradle/
+android/build/
+android/app/build/
+android/local.properties
+
+# Test artifacts
+playwright-screenshot*.png
+.nyc_output/
+
+# OS
+Thumbs.db

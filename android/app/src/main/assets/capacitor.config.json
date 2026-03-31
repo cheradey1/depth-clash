@@ -1,0 +1,12 @@
+{
+	"appId": "com.depthclash.game",
+	"appName": "Depth Clash",
+	"webDir": "dist",
+	"android": {
+		"allowMixedContent": true
+	},
+	"server": {
+		"androidScheme": "https"
+	},
+	"plugins": {}
+}

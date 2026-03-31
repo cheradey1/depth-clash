@@ -16,9 +16,14 @@ interface ShopPanelProps {
   onThemeChange: (theme: GameTheme) => void;
   onClose: () => void;
   currentPlayer?: 'Player1' | 'Player2';
+  inventory?: {
+    currency_balance: number;
+    premium_ship_count: number;
+  } | null;
+  onBuyPremiumShip?: (cost?: number) => void;
 }
 
-export const ShopPanel: React.FC<ShopPanelProps> = ({ currentTheme, onThemeChange, onClose, currentPlayer = 'Player1' }) => {
+export const ShopPanel: React.FC<ShopPanelProps> = ({ currentTheme, onThemeChange, onClose, currentPlayer = 'Player1', inventory, onBuyPremiumShip }) => {
   const [theme, setTheme] = useState<GameTheme>(currentTheme);
   const [purchasedThemes, setPurchasedThemes] = useState<Set<string>>(() => {
     const saved = localStorage.getItem('depth-clash-purchased');
@@ -179,12 +184,20 @@ export const ShopPanel: React.FC<ShopPanelProps> = ({ currentTheme, onThemeChang
         className="bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 rounded-2xl p-8 max-w-2xl w-full max-h-[90vh] overflow-y-auto border-2 border-yellow-500/30 shadow-2xl"
       >
         {/* Header */}
-        <div className="flex items-center gap-3 mb-8">
+        <div className="flex items-center gap-3 mb-4">
           <ShoppingCart size={32} className="text-yellow-400" />
           <h2 className="text-3xl font-bold bg-gradient-to-r from-yellow-300 to-orange-400 bg-clip-text text-transparent">
             SHOP
           </h2>
         </div>
+        {inventory && (
+          <div className="mb-6 p-4 rounded-2xl bg-slate-800/80 border border-slate-600 text-sm text-slate-200">
+            <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+              <span>Currency: <strong>{inventory.currency_balance}</strong></span>
+              <span>Premium Ships: <strong>{inventory.premium_ship_count}</strong></span>
+            </div>
+          </div>
+        )}
 
         {/* Ships Theme */}
         <div className="mb-8">

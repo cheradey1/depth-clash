@@ -11,6 +11,8 @@ A turn-based submarine warfare game with hexagonal grid strategy gameplay, real-
 - **AI Opponent**: Challenge the AI in Training mode
 - **Mobile Ready**: Packaged as Android APK via Capacitor
 - **Clash Royale Styling**: 3D effects, animations, and polish
+- **Persistent Economy**: Server-side balance, premium ship inventory, and purchase flow
+- **Matchmaking & Tournaments**: Queue-based multiplayer match pairing with asset locking
 - **Responsive UI**: Works on 320px to 2560px+ screens
 
 ## 🚀 Quick Start (Web)
@@ -107,7 +109,8 @@ The Android build automatically uses `.env.android` with:
 - **Мережева гра**: Підтримка багатокористувацької гри через WebSocket (Socket.io) з лобі для пошуку матчів.
 - **ШІ-суперник**: Режим тренування з комп'ютерним опонентом.
 - **Графічний інтерфейс**: React-компоненти для ігрового поля (HexTile), кораблів (Ship), ефектів бою (CombatEffects), лобі (OnlineGameLobby), магазину (ShopPanel) та підручника (Tutorial).
-- **Серверна частина**: Node.js сервер для обробки з'єднань та ігрової логіки.
+- **Серверна частина**: Node.js сервер для обробки з'єднань, авторитетної логіки бою, збереження економіки та матчмейкінгу.
+- **Економічна платформа**: Серверне збереження балансу, преміум-кораблів, покупок та турнірного бронювання.
 - **Мобільна адаптація**: Інтеграція з Capacitor для збірки Android APK.
 - **Активи**: Графічні ресурси для кораблів, вибухів, снарядів та звуків.
 - **Збірка та деплоймент**: Скрипти для автоматичної збірки веб-активів та Android додатку.

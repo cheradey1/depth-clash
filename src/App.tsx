@@ -9,8 +9,10 @@ import { Projectile, Explosion } from './components/CombatEffects';
 import { OnlineGameLobby } from './components/OnlineGameLobby';
 import { ShopPanel } from './components/ShopPanel';
 import { Tutorial } from './components/Tutorial';
+import { CombatCamera } from './components/CombatCamera';
+import { TransactionToast } from './components/TransactionToast';
 import { GRID_WIDTH, GRID_HEIGHT, GamePhase, HexCoord, Ship as ShipType, INITIAL_SHIPS_PER_PLAYER, isHexInGrid, GameTheme, DEFAULT_THEME } from './types';
-import { Move, Target, Check, X, Trophy, Timer, MousePointer2, Volume2, VolumeX, Swords, Shield, Settings, Info, Palette, ShoppingCart } from 'lucide-react';
+import { Move, Target, Check, X, Trophy, Timer, MousePointer2, Volume2, VolumeX, Swords, Shield, Settings, Info, Wifi, Palette, ShoppingCart } from 'lucide-react';
 
 // Import Luckiest Guy font for Clash Royale style
 const LuckiestGuyFont = () => (
@@ -155,25 +157,59 @@ export default function App() {
   const [onlineNickname, setOnlineNickname] = useState('Player');
   const [showThemeSelector, setShowThemeSelector] = useState(false);
   const [showVolumeControls, setShowVolumeControls] = useState(false);
-  const [gameTheme, setGameTheme] = useState<GameTheme>(() => {
-    const saved = localStorage.getItem('depth-clash-theme');
-    return saved ? JSON.parse(saved) : DEFAULT_THEME;
-  });
-  const [volumes, setVolumes] = useState(() => {
-    const saved = localStorage.getItem('depth-clash-volumes');
-    return saved ? JSON.parse(saved) : {
-      master: 0.5,
-      ambient: 0.2,
-      music: 0.15,
-      effects: 0.5
-    };
-  });
+  const [shakeTrigger, setShakeTrigger] = useState(0);
+  const [toastState, setToastState] = useState<{ open: boolean; message: string }>({ open: false, message: '' });
+
+  const parseStored = <T,>(key: string, fallback: T): T => {
+    const saved = localStorage.getItem(key);
+    if (!saved) return fallback;
+    try {
+      return JSON.parse(saved) as T;
+    } catch {
+      localStorage.removeItem(key);
+      return fallback;
+    }
+  };
+
+  const [gameTheme, setGameTheme] = useState<GameTheme>(() => parseStored('depth-clash-theme', DEFAULT_THEME));
+  const [volumes, setVolumes] = useState(() => parseStored('depth-clash-volumes', {
+    master: 0.5,
+    ambient: 0.2,
+    music: 0.15,
+    effects: 0.5
+  }));
   
   // Online game logic - only initialized if online mode is active
   const networkGame = useNetworkGameLogic({
     isOnline: isOnlineMode,
-    nickname: onlineNickname
+    nickname: onlineNickname,
+    onShotHit: (hit: boolean) => {
+      if (hit) {
+        setShakeTrigger(prev => prev + 1);
+        setToastState({ 
+          open: true, 
+          message: '🎯 Hit!' 
+        });
+      }
+    },
+    onGameOver: (winner: string, wasVictory: boolean) => {
+      if (wasVictory) {
+        setToastState({ 
+          open: true, 
+          message: '🏆 Victory! +12 ships' 
+        });
+      }
+    }
   });
+
+  // Auto-close toast after 2.5 seconds
+  useEffect(() => {
+    if (!toastState.open) return;
+    const timer = window.setTimeout(() => {
+      setToastState({ open: false, message: '' });
+    }, 2500);
+    return () => window.clearTimeout(timer);
+  }, [toastState.open]);
 
   // Handle URL parameters for auto-joining rooms
   useEffect(() => {
@@ -875,9 +911,27 @@ export default function App() {
                 <motion.button
                   whileHover={{ scale: 1.02 }}
                   whileTap={{ scale: 0.95 }}
+                  className="group relative w-full py-2.5 sm:py-3.5 bg-gradient-to-r from-blue-600 to-blue-500 text-white rounded-xl sm:rounded-2xl font-clash flex flex-col items-center justify-center overflow-hidden pointer-events-none opacity-60 cursor-not-allowed"
+                >
+                  <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/10 to-transparent -translate-x-full" />
+                  <div className="flex items-center gap-2">
+                    <Wifi size={18} className="sm:w-[24px] sm:h-[24px]" />
+                    <span className="text-lg sm:text-2xl clash-shadow text-stroke-sm">TOURNAMENT</span>
+                  </div>
+                  <span className="text-[7px] sm:text-[9px] opacity-80 tracking-widest uppercase">IN DEVELOPMENT</span>
+                </motion.button>
+
+                <motion.button
+                  whileHover={{ scale: 1.02 }}
+                  whileTap={{ scale: 0.95 }}
                   onClick={() => {
-                    setIsOnlineMode(false);
                     setIsAiMode(true);
+                    setIsOnlineMode(false);
+                    setSelectedShipId(null);
+                    setActionType(null);
+                    setShootTarget(null);
+                    setDraggedShipId(null);
+                    setDragTarget(null);
                     startSetup();
                   }}
                   className="group relative w-full py-2 sm:py-3 clash-btn-blue text-white rounded-xl sm:rounded-2xl font-clash flex flex-col items-center justify-center overflow-hidden"
@@ -1043,16 +1097,17 @@ export default function App() {
           />
         </div>
         
-        <svg
-          viewBox={viewBox}
-          className="w-full h-full touch-none drop-shadow-[0_0_10px_rgba(0,0,0,0.5)]"
-          preserveAspectRatio="xMidYMid meet"
-          onMouseMove={handleMouseMove}
-          onTouchMove={handleMouseMove}
-          onMouseUp={handleDragEnd}
-          onTouchEnd={handleDragEnd}
-          onMouseLeave={handleDragEnd}
-        >
+        <CombatCamera shake={shakeTrigger > 0}>
+          <svg
+            viewBox={viewBox}
+            className="w-full h-full touch-none drop-shadow-[0_0_10px_rgba(0,0,0,0.5)]"
+            preserveAspectRatio="xMidYMid meet"
+            onMouseMove={handleMouseMove}
+            onTouchMove={handleMouseMove}
+            onMouseUp={handleDragEnd}
+            onTouchEnd={handleDragEnd}
+            onMouseLeave={handleDragEnd}
+          >
           {/* Animated water background */}
           <defs>
             <linearGradient id="waterBg" x1="0%" y1="0%" x2="100%" y2="100%">
@@ -1285,6 +1340,7 @@ export default function App() {
             </g>
           )}
         </svg>
+        </CombatCamera>
 
         {/* Action Panel */}
         {selectedShip && state.phase === GamePhase.Battle && !isLaunching && (
@@ -1474,6 +1530,8 @@ export default function App() {
             currentTheme={gameTheme}
             onThemeChange={handleThemeChange}
             onClose={() => setShowThemeSelector(false)}
+            inventory={networkGame.inventory}
+            onBuyPremiumShip={networkGame.buyPremiumShip}
           />
         )}
       </AnimatePresence>
@@ -1598,6 +1656,13 @@ export default function App() {
           </motion.div>
         )}
       </AnimatePresence>
+
+      {/* Transaction Toast Notification */}
+      <TransactionToast 
+        open={toastState.open} 
+        message={toastState.message}
+        onClose={() => setToastState({ open: false, message: '' })}
+      />
     </div>
   );
 }

@@ -18,7 +18,7 @@ export const HexTile: React.FC<HexTileProps> = ({
   isHighlighted, 
   highlightColor = 'rgba(59, 130, 246, 0.5)',
   onClick,
-  children 
+  children
 }) => {
   const points = [];
   const gapFactor = 0.92;
@@ -37,57 +37,63 @@ export const HexTile: React.FC<HexTileProps> = ({
     shadowPoints.push(`${pixelPos.x + size * gapFactor * Math.cos(angle_rad) + shadowOffset},${pixelPos.y + size * gapFactor * Math.sin(angle_rad) + shadowOffset}`);
   }
 
+  // Determine fill color based on state
+  let fillColor = '#0ea5e9';
+  let strokeColor = '#0ea5e9';
+  let strokeWidth = '1.5';
+
+  if (isHighlighted && highlightColor?.includes('239, 68, 68')) {
+    fillColor = '#ef4444';
+    strokeColor = '#dc2626';
+    strokeWidth = '2.5';
+  } else if (isHighlighted) {
+    fillColor = '#f59e0b';
+    strokeColor = '#d97706';
+    strokeWidth = '2.5';
+  }
+
   return (
-    <g onClick={onClick} className="cursor-pointer group water-hex">
+    <g onClick={onClick} style={{ pointerEvents: 'auto' }}>
       {/* Deep shadow for 3D effect */}
       <polygon
         points={shadowPoints.join(' ')}
         fill="rgba(0, 0, 0, 0.4)"
-        className="transition-all duration-200"
+        style={{ transition: 'all 200ms ease-out' }}
       />
       
-      {/* Water texture overlay */}
-      <defs>
-        <linearGradient id={`waterGrad-${coord.q}-${coord.r}`} x1="0%" y1="0%" x2="100%" y2="100%">
-          {isHighlighted && highlightColor?.includes('239, 68, 68') ? (
-            <>
-              <stop offset="0%" stopColor="#ef4444" stopOpacity="0.9" />
-              <stop offset="50%" stopColor="#dc2626" stopOpacity="0.8" />
-              <stop offset="100%" stopColor="#b91c1c" stopOpacity="0.7" />
-            </>
-          ) : (
-            <>
-              <stop offset="0%" stopColor={isHighlighted ? '#f59e0b' : '#0ea5e9'} stopOpacity={isHighlighted ? 0.9 : 0.8} />
-              <stop offset="30%" stopColor={isHighlighted ? '#d97706' : '#0284c7'} stopOpacity={isHighlighted ? 0.8 : 0.7} />
-              <stop offset="70%" stopColor={isHighlighted ? '#b45309' : '#0369a1'} stopOpacity={isHighlighted ? 0.7 : 0.6} />
-              <stop offset="100%" stopColor={isHighlighted ? '#92400e' : '#075985'} stopOpacity={isHighlighted ? 0.6 : 0.5} />
-            </>
-          )}
-        </linearGradient>
-        
-        {/* Water ripple pattern */}
-        <pattern id={`waterPattern-${coord.q}-${coord.r}`} x="0" y="0" width="20" height="20" patternUnits="userSpaceOnUse">
-          <circle cx="10" cy="10" r="1" fill="rgba(255, 255, 255, 0.1)" className="water-ripple">
-            <animate attributeName="r" values="1;2;1" dur="3s" repeatCount="indefinite" />
-            <animate attributeName="opacity" values="0.1;0.3;0.1" dur="3s" repeatCount="indefinite" />
-          </circle>
-        </pattern>
-      </defs>
-      
+      {/* Main hex tile */}
       <polygon
         points={points.join(' ')}
-        fill={`url(#waterGrad-${coord.q}-${coord.r})`}
-        stroke={isHighlighted && highlightColor?.includes('239, 68, 68') ? '#dc2626' : (isHighlighted ? '#d97706' : '#0ea5e9')}
-        strokeWidth={isHighlighted ? '2.5' : '1.5'}
-        className="transition-all duration-200 group-hover:stroke-blue-400 group-hover:stroke-[2.5] group-active:brightness-125"
-      />
-      
-      {/* Water texture overlay */}
-      <polygon
-        points={points.join(' ')}
-        fill={`url(#waterPattern-${coord.q}-${coord.r})`}
-        opacity="0.4"
-        className="pointer-events-none"
+        fill={fillColor}
+        stroke={strokeColor}
+        strokeWidth={strokeWidth}
+        style={{ 
+          transition: 'all 200ms ease-out',
+          cursor: 'pointer',
+          opacity: isHighlighted ? 0.85 : 0.7
+        }}
+        onMouseEnter={(e) => {
+          const el = e.currentTarget as SVGPolygonElement;
+          el.setAttribute('stroke', '#60a5fa');
+          el.setAttribute('stroke-width', '2.5');
+          el.setAttribute('opacity', '0.95');
+        }}
+        onMouseLeave={(e) => {
+          const el = e.currentTarget as SVGPolygonElement;
+          el.setAttribute('stroke', strokeColor);
+          el.setAttribute('stroke-width', strokeWidth);
+          el.setAttribute('opacity', isHighlighted ? '0.85' : '0.7');
+        }}
+        onMouseDown={(e) => {
+          const el = e.currentTarget as SVGPolygonElement;
+          el.setAttribute('opacity', '1');
+          el.setAttribute('stroke-width', '3');
+        }}
+        onMouseUp={(e) => {
+          const el = e.currentTarget as SVGPolygonElement;
+          el.setAttribute('opacity', isHighlighted ? '0.85' : '0.7');
+          el.setAttribute('stroke-width', strokeWidth);
+        }}
       />
       
       {/* Inner highlight line for depth */}
@@ -96,7 +102,7 @@ export const HexTile: React.FC<HexTileProps> = ({
         fill="none"
         stroke="rgba(255, 255, 255, 0.15)"
         strokeWidth="0.8"
-        className="transition-all duration-200 group-hover:stroke-white/30"
+        style={{ transition: 'all 200ms ease-out' }}
       />
       
       {/* Highlight glow when selected */}
@@ -107,21 +113,8 @@ export const HexTile: React.FC<HexTileProps> = ({
           stroke={highlightColor}
           strokeWidth="0.5"
           opacity="0.6"
-          className="animate-pulse"
-        />
-      )}
-      
-      {/* Random bubbles for underwater effect */}
-      {Math.random() > 0.7 && (
-        <circle
-          cx={pixelPos.x + (Math.random() - 0.5) * size * 0.6}
-          cy={pixelPos.y + (Math.random() - 0.5) * size * 0.6}
-          r={Math.random() * 1.5 + 0.5}
-          fill="rgba(255, 255, 255, 0.3)"
-          className="bubble-animation pointer-events-none"
           style={{
-            animationDelay: `${Math.random() * 4}s`,
-            animationDuration: `${4 + Math.random() * 2}s`
+            animation: 'pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite'
           }}
         />
       )}
