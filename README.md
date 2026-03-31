@@ -233,12 +233,67 @@ npm run dev              # Start with nodemon
 - ✅ TypeScript: Zero errors
 - ✅ Build Size: 423.11 KB (web), optimized for mobile
 
+## 🤝 Contributing & Hiring
+
+### 🚀 We're Hiring!
+Senior Full-Stack Developer needed for production scaling:
+- **Revenue Share:** 25% of tournament income
+- **Responsibilities:** Online battles, payment integration, tournaments
+- **Tech Stack:** React, TypeScript, Node.js, PostgreSQL
+
+👉 **[SEE HIRING.md](./HIRING.md)** for full details
+
+### 👨‍💻 Contributing
+Want to contribute to Depth Clash?
+- **[Contributing Guidelines](./CONTRIBUTING.md)** - How to submit PRs
+- **[Revenue Sharing Agreement](./REVENUE_SHARING.md)** - How contributors get paid (25% of revenue)
+
+### 📜 Legal
+- **[LICENSE](./LICENSE)** - MIT License
+- **[REVENUE_SHARING.md](./REVENUE_SHARING.md)** - Distribution of earnings
+
+---
+
 ## 🔗 Documentation
 
-- [ANDROID_BUILD_GUIDE.md](./ANDROID_BUILD_GUIDE.md) - Detailed Android setup
-- [PROJECT_STATUS.md](./PROJECT_STATUS.md) - Full development history
+### Quick Start
+- [GETTING_STARTED.md](./GETTING_STARTED.md) - Local development
+- [ANDROID_BUILD_GUIDE.md](./ANDROID_BUILD_GUIDE.md) - Android APK building
+- [PROJECT_STATUS.md](./PROJECT_STATUS.md) - Development history
+
+### External References
 - [Capacitor Docs](https://capacitorjs.com/)
 - [Vite Documentation](https://vitejs.dev/)
+- [Socket.io Guide](https://socket.io/docs/v4/)
+
+## � Production Deployment
+
+### Quick Deploy (5 Steps)
+
+**1. MongoDB Atlas (Database)**
+- Visit atlas.mongodb.com → Create M0 cluster
+- IP Whitelist: 0.0.0.0/0
+- Get URI: `mongodb+srv://user:pass@cluster.mongodb.net/depth_clash`
+
+**2. Render (Backend)**
+- Connect GitHub → Create Web Service
+- Build: `cd server && npm install`
+- Start: `node index.js`
+- Env: `MONGODB_URI=<your-uri>`
+- Result: `https://depth-clash-server.onrender.com`
+
+**3. Vercel (Frontend)**
+- Connect GitHub → Import project
+- Build: `npm run build`
+- Env: `VITE_SERVER_URL=https://depth-clash-server.onrender.com`
+- Result: `https://depth-clash.vercel.app`
+
+**4. Itch.io (Web Build)**
+- Build: `VITE_SERVER_URL=... npm run build`
+- Upload `dist/` folder
+- Publish as HTML5 game
+
+---
 
 ## 👨‍💻 Development
 
@@ -248,6 +303,7 @@ npm run dev              # Start with nodemon
 3. Update Socket.io handlers in `src/hooks/useNetworkGameLogic.ts`
 4. Test: `npm run dev`
 5. Build: `npm run build`
+6. Submit PR per [CONTRIBUTING.md](./CONTRIBUTING.md)
 
 ### Debugging
 - **Web**: Open DevTools (F12)
@@ -256,13 +312,24 @@ npm run dev              # Start with nodemon
 
 ## 📄 License
 
-MIT
+[MIT License](./LICENSE) - Free to use, modify, distribute
 
 ## 🙏 Credits
 
-Developed as a turn-based strategy game with multiplayer support and mobile deployment.
+Developed as a turn-based hexagonal strategy game with multiplayer support.
+
+Thanks to all [contributors](https://github.com/cheradey1/depth-clash/graphs/contributors)!
 
 ---
 
-**Status**: ✅ Ready for deployment (Web & Android)
-**Last Updated**: Phase 9 (Capacitor Integration Complete)
+## 📊 Status
+
+- ✅ MVP: Complete
+- ✅ Web: Production-ready
+- ✅ Backend: Scalable
+- ✅ Android: Ready for APK
+- ✅ TypeScript: Zero errors
+- 🚀 Hiring: Senior Developer (25% revenue share)
+- 📈 Deployment: GitHub → MongoDB Atlas → Render → Vercel → Itch.io
+
+**Last Updated**: March 31, 2026
