@@ -274,6 +274,37 @@ Spendable: 38 ships
 [New balance: 62 ships (victory) OR 38 ships (defeat)]
 ```
 
+### 🎓 Free Training vs Paid Gameplay
+
+**Free Training** (AI Battles)
+- 🤖 Play unlimited matches against AI opponent
+- 📍 Earn **free ships daily** (limited quantity, resets every 24h)
+- 💰 No cost, no risk — perfect for learning game mechanics
+- 🏆 Victory/defeat does NOT affect balance
+- ⏰ Daily cap: 5 free ships/day from AI wins
+
+**Paid Ranked Battles** (Player vs Player)
+- 💎 Each match requires **12-ship stake** from your inventory
+- 📊 Ships act as **transaction currency** — value depends on quantity purchased
+- ⚠️ **Risk model**: Full stake (12 ships) transfers to winner if you lose
+- 💸 **Example**: 
+  - Buy 50 ships → Have 50 ships to stake across 4 tournaments (12 each)
+  - Win 1st match → Get opponent's 12 ships (now 62 total)
+  - Lose 2nd match → Lose your 12 ships to opponent (down to 50)
+  - Remaining 26 ships can still enter 2 more tournaments
+- 🎯 **Incentive**: Accumulate ships by winning, sell back to shop for real money
+
+**Tournament Flow**
+```
+Total Inventory: 50 ships
+↓ [Enter Tournament]
+↓ [Allocate 12 ships for stake]
+↓ [12 locked, 38 available for other matches]
+↓ [Win] → +12 opponent ships = 62 total
+  OR
+↓ [Lose] → -12 ships = 38 total (removed from circulation)
+```
+
 ---
 
 ## �📝 Build Status
