@@ -250,6 +250,43 @@ Depth Clash operates on a **Real-Asset Economy** model where in-game units (subm
 - **Withdraw funds** via PayPal/Stripe integration
 - Incentivizes competitive play for real earnings
 
+### 💰 Store Income (Per Ship Sale)
+
+```
+Ship Price: $1.50
+│
+├─ Shop Cut: $0.50
+│  ├─ Developer Share: 25% → $0.125 per ship ✅
+│  └─ Platform Share: 75% → $0.375 per ship
+│
+└─ Remaining to Project: $1.00 per ship
+```
+
+**Revenue Model Examples:**
+
+**Per 12 Ships Purchased (1 Tournament Entry):**
+```
+Player pays: 12 × $1.50 = $18.00
+Shop cuts: 12 × $0.50 = $6.00
+  ├─ Developer: 12 × $0.125 = $1.50 ✅
+  ├─ Platform: 12 × $0.375 = $4.50
+  └─ Project: 12 × $1.00 = $12.00
+```
+
+**Per 10 Active Players (Monthly):**
+```
+Estimated revenue: 10 players × 12 ships × $1.50 = $180.00
+Developer income: 10 × 12 × $0.125 = $15.00/month ✅
+```
+
+**Per 100 Active Players (Scaling):**
+```
+Total revenue: 100 × 12 × $1.50 = $1,800.00/month
+Developer income: 100 × 12 × $0.125 = $150.00/month ✅
+```
+
+**Incentive for Developers:** The more tournaments players enter (and ships purchased), the higher your income. At scale (1000+ players), developer income reaches **$1,500+/month** with 25% shop revenue share.
+
 ### Technical Implementation
 
 **Server-Side Authority**
