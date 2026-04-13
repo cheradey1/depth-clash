@@ -392,7 +392,7 @@ Want to contribute to Depth Clash?
 **1. MongoDB Atlas (Database)**
 - Visit atlas.mongodb.com → Create M0 cluster
 - IP Whitelist: 0.0.0.0/0
-- Get URI: `mongodb+srv://user:pass@cluster.mongodb.net/depth_clash`
+- Get URI: `mongodb+srv://<your_db_username>:<your_db_password>
 
 **2. Render (Backend)**
 - Connect GitHub → Create Web Service
