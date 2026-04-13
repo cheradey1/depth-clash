@@ -1,3 +1,5 @@
+<img width="788" height="548" alt="Знімок екрана з 2026-04-05 18-02-56" src="https://github.com/user-attachments/assets/01a1c6d2-1dbd-4d4c-83a0-f0501e066aae" />
+<img width="1152" height="912" alt="Gemini_Generated_Image_gqbu6qgqbu6qgqbu" src="https://github.com/user-attachments/assets/f86eb955-45e6-4d0b-b28b-8a045895da48" />
 # ⚔️ Depth Clash - Hexagonal Strategy Game
 
 A turn-based submarine warfare game with hexagonal grid strategy gameplay, real-time multiplayer via Socket.io, and AI opponent support. Built with React, TypeScript, Vite, and wrapped for Android with Capacitor.
