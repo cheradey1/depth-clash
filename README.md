@@ -1,5 +1,5 @@
 <img width="1152" height="912" alt="Gemini_Generated_Image_gqbu6qgqbu6qgqbu" src="https://github.com/user-attachments/assets/f86eb955-45e6-4d0b-b28b-8a045895da48" />
-<img width="1595" height="686" alt="Знімок екрана з 2026-04-05 16-22-14" src="https://github.com/user-attachments/assets/683d0ff5-0c19-46b9-bd64-50048ea787ac" />
+<img width="1598" height="642" alt="Знімок екрана з 2026-04-13 16-31-48" src="https://github.com/user-attachments/assets/9536d55a-2674-4922-a6f3-c4c511a8638b" />
 <img width="1598" height="642" alt="Знімок екрана з 2026-04-13 16-22-43" src="https://github.com/user-attachments/assets/a106a220-a988-4449-9107-815a343a7a4b" />
 <img width="1598" height="642" alt="Знімок екрана з 2026-04-13 16-27-17" src="https://github.com/user-attachments/assets/58a5643d-efc8-4a31-9e3a-8483aea693da" />
 <img width="1598" height="642" alt="Знімок екрана з 2026-04-13 16-27-25" src="https://github.com/user-attachments/assets/7717c86d-c0bb-465e-baaa-95d2115ade80" />
