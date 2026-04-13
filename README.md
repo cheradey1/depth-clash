@@ -6,7 +6,6 @@
 <img width="1598" height="642" alt="Знімок екрана з 2026-04-13 16-27-35" src="https://github.com/user-attachments/assets/c618d153-1be8-4b27-9816-04464484b2b6" />
 <img width="1598" height="642" alt="Знімок екрана з 2026-04-13 16-27-45" src="https://github.com/user-attachments/assets/9b344c36-f3c2-449a-a33a-e12fee975b0b" />
 <img width="1598" height="642" alt="Знімок екрана з 2026-04-13 16-27-51" src="https://github.com/user-attachments/assets/046af751-506b-41cc-b260-837f3ad6af72" />
-<img width="1598" height="642" alt="Знімок екрана з 2026-04-13 16-22-43" src="https://github.com/user-attachments/assets/ce07d3a2-2aee-4862-8b00-06e20b93d47c" />
 <img width="1598" height="642" alt="Знімок екрана з 2026-04-13 16-22-14" src="https://github.com/user-attachments/assets/b1a398e0-d22d-4769-b74f-726ab79ad1dd" />
 
 
